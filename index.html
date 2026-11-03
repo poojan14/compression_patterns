@@ -12,11 +12,14 @@
   <div class="brand">Image Compression &amp; Object Recognition</div>
   <nav>
     <span class="navgrp">Compression:</span>
-    <a href="#basics">Basics</a>
+    <a href="#why">Why</a>
+    <a href="#basics">Redundancy</a>
+    <a href="#model">Model</a>
     <a href="#lossy">Lossy vs Lossless</a>
     <a href="#rle">RLE</a>
     <a href="#huffman">Huffman</a>
     <a href="#lzw">LZW</a>
+    <a href="#transform">DCT &amp; DWT</a>
     <a href="#jpeg">JPEG</a>
     <span class="navgrp">Ch 6 Recognition:</span>
     <a href="#patterns">Patterns</a>
@@ -34,57 +37,175 @@
   <h1>Image Compression &amp; Object Recognition</h1>
   <span class="tag">Digital Image Processing · B.Tech Semester 5</span>
   <div class="hero-links">
-    <a class="pill" href="#basics">Part A · Image Compression</a>
+    <a class="pill" href="#why">Part A · Image Compression</a>
     <a class="pill" href="#patterns">Part B · Ch 6 Object Recognition &amp; Case Studies</a>
   </div>
 </section>
 
 <div class="part" id="partA">Part A · Image Compression</div>
 
-<!-- ============ 1. BASICS ============ -->
-<section id="basics" class="card">
-  <h2>1. Why compress? The three redundancies</h2>
-  <p>A compression system has an <b>encoder</b> (turns the image into symbols) and a <b>decoder</b> (rebuilds the image from those symbols). The encoder removes three kinds of redundancy:</p>
+<!-- ============ 1. WHY ============ -->
+<section id="why" class="card">
+  <h2>1. Why image compression?</h2>
+  <p><b>Image compression</b> reduces the redundancy in how an image is represented, so it needs less storage and bandwidth, ideally without a visible loss of quality.</p>
   <div class="grid3">
-    <div class="mini">
-      <h3>Coding redundancy</h3>
-      <p>Frequent gray levels get the same long code as rare ones. Fix: variable-length codes (Huffman, LZW).</p>
-    </div>
-    <div class="mini">
-      <h3>Interpixel redundancy</h3>
-      <p>Neighbouring pixels are almost the same. Fix: predict or transform (RLE, DCT, DWT).</p>
-    </div>
-    <div class="mini">
-      <h3>Psychovisual redundancy</h3>
-      <p>The eye ignores fine detail it cannot see. Fix: quantization, which throws that detail away.</p>
-    </div>
+    <div class="mini"><h3>Transmission</h3><p>Raw images need huge bandwidth, causing latency and congestion. Smaller files mean faster upload and download, smooth streaming and real-time video calls.</p></div>
+    <div class="mini"><h3>Storage cost</h3><p>Local and cloud storage cost money. Reducing data size directly reduces that cost.</p></div>
+    <div class="mini"><h3>Processing</h3><p>Edge detection, filtering and recognition run faster on smaller or compressed representations, needing less hardware.</p></div>
   </div>
 
-  <h3>Block diagram</h3>
-  <div class="pipeline">
-    <div class="box">Mapper</div><span class="arrow">→</span>
-    <div class="box">Quantizer</div><span class="arrow">→</span>
-    <div class="box">Symbol coder</div>
-    <span class="channel">⇢ storage / transmission ⇢</span>
-    <div class="box">Symbol decoder</div><span class="arrow">→</span>
-    <div class="box">Inverse mapper</div>
+  <h3>Measuring compression</h3>
+  <p>If the original needs n₁ bits and the compressed version needs n₂ bits:</p>
+  <ul>
+    <li><b>Compression ratio</b> <code>CR = n₁ / n₂</code> (for example 10:1)</li>
+    <li><b>Relative data redundancy</b> <code>R = 1 − 1/CR</code> (the fraction of the original data that was redundant)</li>
+    <li><b>Percent reduction</b> <code>= (n₁ − n₂) / n₁ × 100</code> (equal to R × 100)</li>
+    <li><b>Compressed payload</b> <code>= (1/CR) × 100</code>% of the original size</li>
+  </ul>
+  <h4>Calculator (example preset)</h4>
+  <p>Example: "An 8-bit grayscale image is 512×512. Its compressed file size is 200 KB. Find the compression ratio and percent reduction."</p>
+  <div class="slider-grid four">
+    <label>Width (px) <input type="number" id="cr-w" value="512" min="1"></label>
+    <label>Height (px) <input type="number" id="cr-h" value="512" min="1"></label>
+    <label>Bits per pixel <input type="number" id="cr-b" value="8" min="1"></label>
+    <label>Compressed size (KB) <input type="number" id="cr-c" value="200" min="0.001" step="any"></label>
   </div>
-  <p class="note">The quantizer is the only irreversible block, which is why the decoder has no "inverse quantizer".</p>
+  <div class="ctrl"><label>1 KB = <select id="cr-kb"><option value="1024">1024 bytes</option><option value="1000">1000 bytes</option></select></label></div>
+  <div id="cr-out"></div>
 </section>
 
-<!-- ============ 2. LOSSY VS LOSSLESS ============ -->
-<section id="lossy" class="card">
-  <h2>2. Lossless vs lossy compression</h2>
+<!-- ============ 2. REDUNDANCY ============ -->
+<section id="basics" class="card">
+  <h2>2. The three types of redundancy</h2>
   <table class="tbl">
-    <tr><th></th><th>Lossless</th><th>Lossy</th></tr>
-    <tr><td><b>Reconstruction</b></td><td>Decoded output is bit-for-bit identical</td><td>Decoded output is an approximation</td></tr>
-    <tr><td><b>Typical ratio</b></td><td>About 2:1 to 3:1 for photos</td><td>10:1 to 100:1 or more</td></tr>
-    <tr><td><b>Techniques</b></td><td>RLE, Huffman, LZW, PNG filters</td><td>Quantization in JPEG, JPEG 2000 (with lossy settings)</td></tr>
-    <tr><td><b>Used for</b></td><td>Medical imaging, scanned documents, text, GIF/PNG graphics</td><td>Photos, web images, video streams</td></tr>
+    <tr><th>Redundancy</th><th>What it is</th><th>Remedy</th><th>Loss?</th></tr>
+    <tr><td><b>Coding</b></td><td>Every value gets an equally long code, although some values occur much more often</td><td>Variable-length coding: Huffman, arithmetic coding</td><td>Lossless</td></tr>
+    <tr><td><b>Interpixel</b> (spatial / geometric)</td><td>Neighbouring pixels are strongly correlated, so a pixel can be predicted from its neighbours</td><td>Predictive coding (DPCM), transform coding (DCT, DWT), run-length coding</td><td>Lossless (the transform alone)</td></tr>
+    <tr><td><b>Psychovisual</b> (perceptual)</td><td>Information the human visual system (HVS) does not perceive</td><td>Quantization matrices, chroma subsampling</td><td><b>Lossy</b></td></tr>
   </table>
 
-  <h3>Try it: what quantization does</h3>
-  <p>Twelve pixel values are rounded to multiples of a step size. A step of 1 changes nothing. Larger steps discard more detail, which leaves fewer distinct values, and fewer distinct values are cheaper to code.</p>
+  <h3>2.1 Coding redundancy</h3>
+  <p>A <b>code</b> is a set of symbols used to represent information; each piece of information gets a <b>code word</b>, and its <b>length</b> is the number of symbols in it. If an 8-bit image uses all 8 bits for every gray level, a very common gray level costs as much as a rare one. Giving shorter code words to more probable values removes this waste. See Huffman (Section 6).</p>
+
+  <h3>2.2 Interpixel redundancy and predictive coding (DPCM)</h3>
+  <p>Because neighbouring pixels are similar, <b>DPCM</b> sends the <b>prediction error</b> <code>e = x − x̂</code> instead of the pixel itself. Here the prediction x̂ is simply the previous pixel. The errors cluster near 0, so their <b>entropy</b> is much lower and a variable-length coder needs fewer bits. The decoder adds each error back to its own prediction, so the process is lossless.</p>
+  <label>Pixel row (comma separated)
+    <input type="text" id="dp-row" class="txt wide-in" value="100, 102, 103, 103, 105, 108, 110, 110, 111, 160, 162, 161, 163, 163" spellcheck="false">
+  </label>
+  <div id="dp-out"></div>
+  <h4>On a whole image</h4>
+  <div class="img-ctrl" data-for="dpcm"></div>
+  <div class="imgrow">
+    <figure><canvas id="dp-img" class="imgc" width="192" height="192"></canvas><figcaption>Original</figcaption></figure>
+    <figure><canvas id="dp-err" class="imgc" width="192" height="192"></canvas><figcaption>Prediction error (gray = 0)</figcaption></figure>
+  </div>
+  <div id="dp-img-out"></div>
+
+  <h3>2.3 Psychovisual redundancy and quantization</h3>
+  <p>The eye is much less sensitive to <b>fine, high-frequency detail</b> and to <b>colour detail</b> than to brightness. Information it cannot perceive is wasted space. Removing it is the only way to exploit this redundancy, so it is always <b>lossy</b>.</p>
+  <p><b>Quantization</b> throws that detail away by mapping a whole range of values to one representative value:
+  <code>q = round(value / step)</code>, and the decoder reconstructs <code>value' = q × step</code>.</p>
+  <div class="slider-grid">
+    <label>Value: <b id="qx-v-v"></b><input type="range" id="qx-v" min="0" max="255" step="1" value="137"></label>
+    <label>Step size: <b id="qx-s-v"></b><input type="range" id="qx-s" min="1" max="64" step="1" value="16"></label>
+  </div>
+  <canvas id="qx-canvas" width="560" height="110"></canvas>
+  <div id="qx-out"></div>
+
+  <h3>2.4 Psychovisual redundancy and chroma subsampling</h3>
+  <p>Colour images are converted from RGB to <b>YCbCr</b>: Y is brightness (luma), Cb and Cr are colour differences (chroma). Because the eye resolves colour detail poorly, the chroma planes can be stored at lower resolution. This is <b>chroma subsampling</b>, and it is lossy.</p>
+  <p class="note">Y = 0.299R + 0.587G + 0.114B · Cb = 128 − 0.1687R − 0.3313G + 0.5B · Cr = 128 + 0.5R − 0.4187G − 0.0813B</p>
+  <div class="img-ctrl" data-for="chroma"></div>
+  <div class="ctrl">
+    <label>Scheme
+      <select id="ch-mode">
+        <option value="444">4:4:4 (no subsampling)</option>
+        <option value="422">4:2:2 (half horizontal chroma)</option>
+        <option value="420" selected>4:2:0 (half horizontal and vertical chroma)</option>
+        <option value="410">Extreme: chroma at 1/4 × 1/4</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="ch-luma"> Do the same to <b>luma (Y)</b> instead, for comparison</label>
+  </div>
+  <div class="imgrow">
+    <figure><canvas id="ch-orig" class="imgc" width="192" height="192"></canvas><figcaption>Original</figcaption></figure>
+    <figure><canvas id="ch-rec" class="imgc" width="192" height="192"></canvas><figcaption id="ch-cap">Reconstructed</figcaption></figure>
+    <figure><canvas id="ch-y" class="imgc" width="192" height="192"></canvas><figcaption>Y (luma)</figcaption></figure>
+    <figure><canvas id="ch-cb" class="imgc" width="192" height="192"></canvas><figcaption>Cb (as stored)</figcaption></figure>
+    <figure><canvas id="ch-cr" class="imgc" width="192" height="192"></canvas><figcaption>Cr (as stored)</figcaption></figure>
+  </div>
+  <div id="ch-out"></div>
+</section>
+
+<!-- ============ 3. MODEL ============ -->
+<section id="model" class="card">
+  <h2>3. Image compression model</h2>
+  <p>A compression system has two structural blocks: an <b>encoder</b> that creates a set of symbols from the input image, and a <b>decoder</b> that reconstructs an output image f̂(x, y) from them. The encoder is modelled as three independent operations, each aimed at one redundancy.</p>
+  <div class="pipeline">
+    <div class="box">f(x, y)</div><span class="arrow">→</span>
+    <div class="box">Mapper</div><span class="arrow">→</span>
+    <div class="box">Quantizer</div><span class="arrow">→</span>
+    <div class="box">Symbol coder</div><span class="arrow">⇢</span>
+    <span class="channel">storage / channel</span><span class="arrow">⇢</span>
+    <div class="box">Symbol decoder</div><span class="arrow">→</span>
+    <div class="box">Inverse mapper</div><span class="arrow">→</span>
+    <div class="box">f̂(x, y)</div>
+  </div>
+  <table class="tbl">
+    <tr><th>Block</th><th>Job</th><th>Redundancy reduced</th><th>Reversible?</th></tr>
+    <tr><td><b>Mapper</b></td><td>Transforms the data (e.g. DCT, prediction, run-lengths). May or may not reduce the amount of data.</td><td>Interpixel</td><td class="ok">Yes</td></tr>
+    <tr><td><b>Quantizer</b></td><td>Reduces the accuracy of the mapper's output, removing irrelevant information. Omitted for lossless compression.</td><td>Psychovisual</td><td class="bad">No</td></tr>
+    <tr><td><b>Symbol coder</b></td><td>Assigns a fixed- or (usually) variable-length code to the quantizer's output.</td><td>Coding</td><td class="ok">Yes</td></tr>
+  </table>
+
+  <h3>Why is there no "inverse quantizer" in the decoder model?</h3>
+  <p>Quantization is <b>many-to-one</b>. With step 16, every value from 136 to 151 becomes q = 9 (try it in Section 2.3), and the decoder can only output 9 × 16 = 144. Nothing in the stored "9" says whether the original was 136 or 151, so no function can undo it. The other blocks are one-to-one: zigzag only reorders, RLE and Huffman codes decode to exactly one sequence, the DCT is an invertible linear transform, and RGB ↔ YCbCr is an invertible change of coordinates.</p>
+  <p class="why"><b>Precise wording.</b> A JPEG decoder <i>does</i> contain a <b>dequantizer</b> that multiplies by the step size. It is a <b>reconstruction</b> (an estimate), not a true inverse; the difference is the quantization error. Also, the quantizer is the <i>main</i> lossy step but not the only one: <b>chroma subsampling</b> also discards data, and the decoder can only interpolate it back.</p>
+
+  <h3>Complete JPEG-style pipeline (colour image)</h3>
+  <div class="two-col">
+    <div>
+      <h4>Encoder</h4>
+      <ol class="flow">
+        <li>RGB image</li>
+        <li>Colour conversion RGB → YCbCr <span class="tagx ok-t">reversible</span></li>
+        <li>Chroma subsampling (e.g. 4:2:0) <span class="tagx bad-t">lossy · psychovisual</span></li>
+        <li>Split into 8×8 blocks, level shift (−128)</li>
+        <li>2-D DCT <span class="tagx ok-t">reversible · energy compaction</span></li>
+        <li>Quantizer (÷ Q-table, round) <span class="tagx bad-t">lossy · psychovisual</span></li>
+        <li>Zigzag scan + run-length coding <span class="tagx ok-t">lossless</span></li>
+        <li>Entropy coder (Huffman) <span class="tagx ok-t">lossless · coding</span></li>
+        <li>Compressed bitstream</li>
+      </ol>
+    </div>
+    <div>
+      <h4>Decoder (reverse order)</h4>
+      <ol class="flow">
+        <li>Bitstream</li>
+        <li>Entropy decode → run-length decode → inverse zigzag</li>
+        <li>Dequantize (× Q-table) <span class="tagx warn-t">cannot restore rounded-off values</span></li>
+        <li>IDCT, +128, merge blocks</li>
+        <li>Chroma upsampling <span class="tagx warn-t">interpolates lost colour samples</span></li>
+        <li>YCbCr → RGB</li>
+        <li>Reconstructed image: close to, not identical to, the original</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. LOSSY VS LOSSLESS ============ -->
+<section id="lossy" class="card">
+  <h2>4. Lossless vs lossy compression</h2>
+  <table class="tbl">
+    <tr><th></th><th>Lossless</th><th>Lossy</th></tr>
+    <tr><td><b>Reconstruction</b></td><td>Original recovered perfectly, bit for bit</td><td>Approximation; quality degrades as the ratio grows</td></tr>
+    <tr><td><b>Compression ratio</b></td><td>Lower (about 2:1 to 3:1 for photos)</td><td>Much higher (10:1 to 100:1)</td></tr>
+    <tr><td><b>Techniques</b></td><td>Entropy coding (Huffman, arithmetic), RLE, LZW, lossless DPCM</td><td>Quantization of DCT/DWT coefficients, chroma subsampling</td></tr>
+    <tr><td><b>Formats</b></td><td>PNG, TIFF (LZW), GIF</td><td>JPEG, HEIF</td></tr>
+    <tr><td><b>Used for</b></td><td>Medical and satellite images, documents, graphics, archives</td><td>Photographs, web images, video</td></tr>
+  </table>
+  <h3>Try it: quantizing a row of pixels</h3>
+  <p>A step of 1 changes nothing (lossless). Larger steps remove detail and leave fewer distinct values, which are cheaper to code.</p>
   <div class="ctrl">
     <label>Step size: <b id="lossy-s-val">1</b></label>
     <input type="range" id="lossy-s" min="1" max="40" value="1">
@@ -92,48 +213,161 @@
   <div id="lossy-out" class="scroll"></div>
 </section>
 
-<!-- ============ 3. RLE ============ -->
+<!-- ============ 5. RLE ============ -->
 <section id="rle" class="card">
-  <h2>3. Run-Length Encoding (RLE), lossless</h2>
-  <p><b>Idea:</b> replace each run of identical symbols with a (count, symbol) pair. It works well when long runs exist, as in binary images, fax pages, and simple graphics.</p>
-  <p><b>Example:</b> <code>AAAABBBCCDAA</code> becomes <code>4A3B2C1D2A</code>.</p>
-  <textarea id="rle-input" spellcheck="false">WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWBWWWWWWWWWWWWWW</textarea>
+  <h2>5. Run-Length Encoding (RLE)</h2>
+  <p>A <b>run</b> is a sequence of consecutive, identical values. RLE stores each run as a single value plus its count. It is lossless and works best when there are long runs, as in binary (black-and-white) images, scanned documents and simple graphics.</p>
+  <div class="ctrl">
+    <label>Format
+      <select id="rle-style">
+        <option value="sc" selected>symbol + count (W4)</option>
+        <option value="cs">count + symbol (4W)</option>
+      </select>
+    </label>
+    <span>Examples:</span>
+    <button class="ghost rle-pre" data-s="WWWWAAADEXXXXXX">WWWWAAADEXXXXXX</button>
+    <button class="ghost rle-pre" data-s="BBBBHHDDXXXXKKKKWWZZZZ">BBBBHHDDXXXXKKKKWWZZZZ</button>
+    <button class="ghost rle-pre" data-s="ABCDEFG">ABCDEFG (no runs)</button>
+  </div>
+  <textarea id="rle-input" spellcheck="false">WWWWAAADEXXXXXX</textarea>
   <div id="rle-out"></div>
-  <p class="note">Limitation: this demo writes counts as digits, so it assumes the input has no digits. Real codecs store counts as binary bytes.</p>
-  <p><b>Application:</b> fax machines (CCITT), BMP/PCX/TIFF packbits, scanline encoding in medical binary masks.</p>
+  <p class="note">Text demo limitation: counts are written as digits, so the input should not contain digits. Real codecs store counts in binary.</p>
+
+  <h3>RLE on a binary image</h3>
+  <p>Each row is stored as <code>value,run</code> pairs. Click cells to paint. The preset is a hollow rectangle in a 40 × 8 bitmap.</p>
+  <div class="ctrl">
+    <button class="ghost" id="bin-preset">Rectangle example</button>
+    <button class="ghost" id="bin-noise">Random noise</button>
+    <button class="ghost" id="bin-clear">Clear</button>
+  </div>
+  <div class="scroll"><div id="bin-grid" class="bingrid"></div></div>
+  <div class="two-col">
+    <div><h4>Run-length code per row</h4><pre id="bin-runs" class="bits"></pre></div>
+    <div id="bin-stats"></div>
+  </div>
+  <p><b>Applications:</b> fax (CCITT Group 3/4), BMP, PCX and TIFF PackBits, and the zero runs inside JPEG.</p>
 </section>
 
-<!-- ============ 4. HUFFMAN ============ -->
+<!-- ============ 6. HUFFMAN ============ -->
 <section id="huffman" class="card">
-  <h2>4. Huffman coding, lossless, variable-length</h2>
-  <p><b>Idea:</b> count how often each symbol appears. Repeatedly merge the two least frequent items into a tree. Left edges are 0 and right edges are 1. Frequent symbols end up near the root and get short codes.</p>
-  <p><b>Key property:</b> the codes are <i>prefix-free</i>. No code is the start of another code, so the bit stream decodes without separators.</p>
-  <textarea id="huf-input" spellcheck="false">ABRACADABRA ALAKAZAM</textarea>
-  <div id="huf-out"></div>
-  <p><b>Application:</b> the entropy-coding stage of JPEG, MP3, DEFLATE (ZIP, PNG, gzip).</p>
+  <h2>6. Huffman coding</h2>
+  <p>A lossless, variable-length code: <b>more frequent symbols get shorter codes</b>. It removes coding redundancy and is optimal among codes that assign a whole number of bits to each symbol.</p>
+  <h3>Building the tree</h3>
+  <ol>
+    <li>Put every symbol in a <b>min-heap (priority queue)</b> keyed by frequency.</li>
+    <li>Pop the two smallest nodes and join them under a new node whose frequency is their sum. The <b>first popped (smaller) becomes the left child, edge 0</b>; the second becomes the right child, edge 1.</li>
+    <li>Push the new node back; it can be popped and merged later like any other node.</li>
+    <li>Repeat until one node remains: the root. Each code is the sequence of 0s and 1s on the path from the root to the leaf.</li>
+  </ol>
+  <p class="note">Ties are broken in the order the symbols are listed (original symbols before newly created nodes). A different tie order can give different codes with the same total length.</p>
+
+  <div class="tabs" id="hf-mode">
+    <button class="tab on" data-m="freq">Frequency table (worked example)</button>
+    <button class="tab" data-m="text">From text</button>
+  </div>
+  <div id="hf-in-freq">
+    <label>symbol:frequency pairs <input type="text" id="hf-freq" class="txt wide-in" value="a:45 e:65 l:13 n:45 o:18 s:22 t:53" spellcheck="false"></label>
+  </div>
+  <div id="hf-in-text" hidden>
+    <textarea id="hf-text" spellcheck="false">ABRACADABRA ALAKAZAM</textarea>
+  </div>
+
+  <h4>Step through the min-heap</h4>
+  <div class="ctrl">
+    <button id="hf-prev" class="ghost">◀ Back</button>
+    <button id="hf-next">Next merge ▶</button>
+    <button id="hf-all" class="ghost">Show final tree</button>
+    <span id="hf-stepinfo" class="note"></span>
+  </div>
+  <p class="bits" id="hf-heap"></p>
+  <div class="scroll"><div id="hf-tree"></div></div>
+  <div id="hf-out"></div>
+
+  <h4>Decode a bit stream</h4>
+  <p>Start at the root: 0 = go left, 1 = go right; at a leaf, output the symbol and return to the root. Because the code is <b>prefix-free</b>, no separators are needed.</p>
+  <input type="text" id="hf-bits" class="txt wide-in" value="110100110" spellcheck="false">
+  <div id="hf-dec"></div>
 </section>
 
-<!-- ============ 5. LZW ============ -->
+<!-- ============ 7. LZW ============ -->
 <section id="lzw" class="card">
-  <h2>5. Lempel-Ziv-Welch (LZW), lossless, dictionary-based</h2>
-  <p><b>Idea:</b> the encoder and decoder build the same dictionary as they go. The encoder keeps extending a buffer <code>w</code> while <code>w+c</code> is already in the dictionary. When it is not, it outputs the code for <code>w</code> and adds <code>w+c</code> as a new entry. No dictionary is transmitted.</p>
-  <p><b>Application:</b> GIF, TIFF, and early PDF/PostScript.</p>
-  <textarea id="lzw-input" spellcheck="false">TOBEORNOTTOBEORTOBEORNOT</textarea>
+  <h2>7. Lempel–Ziv–Welch (LZW) coding</h2>
+  <ul>
+    <li><b>Dictionary-based</b> and lossless; needs <b>no prior knowledge</b> of symbol probabilities.</li>
+    <li>The dictionary starts with all single 8-bit characters (codes 0–255). Codes 256 to 4095 (12-bit) represent longer sequences.</li>
+    <li><b>Encoder:</b> find the longest string P already in the dictionary, output its code, and add P + C (P followed by the next character C) as a new entry.</li>
+    <li><b>Decoder:</b> rebuilds exactly the same dictionary from the codes alone, so no dictionary is transmitted.</li>
+    <li><b>Used in:</b> GIF, and optionally TIFF and PDF.</li>
+  </ul>
+  <div class="ctrl">
+    <label>Initial dictionary
+      <select id="lzw-mode">
+        <option value="ascii" selected>All 256 ASCII codes (standard)</option>
+        <option value="compact">Only the symbols used (compact, for hand work)</option>
+      </select>
+    </label>
+    <span>Examples:</span>
+    <button class="ghost lzw-pre" data-s="ABABABA">ABABABA</button>
+    <button class="ghost lzw-pre" data-s="TOBEORNOTTOBEORTOBEORNOT">TOBEORNOT…</button>
+    <button class="ghost lzw-pre" data-s="AAAAAAAAAAAAAAAAAAAAAAAA">AAAA… (24 A's)</button>
+  </div>
+  <textarea id="lzw-input" spellcheck="false">ABABABA</textarea>
   <div id="lzw-out"></div>
+  <p class="why"><b>Common mistake with ABABABA:</b> the correct LZW output is <code>65 66 256 258</code> (A, B, AB, ABA). After sending AB (256) the encoder continues with A, B, A, finds "ABA" (258) already in the dictionary, and sends it as one code, so there is no separate code 65 at steps 3 and 5. The table above traces every character.</p>
 </section>
 
-<!-- ============ 6. JPEG ============ -->
-<section id="jpeg" class="card">
-  <h2>6. JPEG: the whole pipeline, step by step</h2>
-  <p>JPEG is lossy. It combines RLE-style zero coding, Huffman entropy coding, and a DCT transform. Use the buttons to walk through one 8×8 block. Move the quality slider to see how quantization changes everything.</p>
+<!-- ============ 8. TRANSFORM CODING ============ -->
+<section id="transform" class="card">
+  <h2>8. Transform coding: DCT and DWT</h2>
+  <p>Transform coding is a <b>mapper</b>: it moves the image into a frequency domain where most energy sits in a few coefficients. The transform itself is reversible; compression comes from quantizing or discarding the many small coefficients afterwards.</p>
 
+  <h3>8.1 Discrete Cosine Transform (DCT)</h3>
+  <p>The 8×8 DCT writes every block as a weighted sum of 64 cosine patterns (basis images). F(0,0) is the <b>DC</b> term (block average); patterns further right or down have higher horizontal or vertical frequency. Click a pattern to enlarge it.</p>
+  <div class="two-col">
+    <canvas id="dct-basis" width="320" height="320"></canvas>
+    <div>
+      <canvas id="dct-one" width="160" height="160" class="small-c"></canvas>
+      <p id="dct-one-cap"></p>
+      <p class="note">F(u, v) = ¼ C(u) C(v) Σₓ Σᵧ f(x, y) cos[(2x+1)uπ/16] cos[(2y+1)vπ/16], with C(0) = 1/√2 and C(u) = 1 otherwise.</p>
+    </div>
+  </div>
+  <h4>Energy compaction: keep only the first K coefficients of every block</h4>
+  <div class="img-ctrl" data-for="dctk"></div>
+  <div class="slider-grid one">
+    <label>Coefficients kept per 8×8 block (zigzag order): <b id="dk-k-v"></b><input type="range" id="dk-k" min="1" max="64" step="1" value="6"></label>
+  </div>
+  <div class="imgrow">
+    <figure><canvas id="dk-orig" class="imgc" width="192" height="192"></canvas><figcaption>Original</figcaption></figure>
+    <figure><canvas id="dk-rec" class="imgc" width="192" height="192"></canvas><figcaption>Rebuilt from K coefficients</figcaption></figure>
+  </div>
+  <div id="dk-out"></div>
+
+  <h3>8.2 Discrete Wavelet Transform (DWT)</h3>
+  <p>The DWT uses <b>multi-resolution analysis</b>: low-pass and high-pass filters are applied along rows and then columns, splitting the image into four sub-bands. The <b>LL</b> band is a half-size approximation and is decomposed again for the next level. <b>JPEG 2000</b> uses the DWT on the whole image instead of block DCT, so it has no 8×8 blocking artifacts. This demo uses the simple Haar wavelet.</p>
+  <div class="img-ctrl" data-for="dwt"></div>
+  <div class="ctrl">
+    <label>Levels <select id="dw-lev"><option>1</option><option selected>2</option><option>3</option></select></label>
+  </div>
+  <div class="imgrow">
+    <figure><canvas id="dw-orig" class="imgc" width="192" height="192"></canvas><figcaption>Original</figcaption></figure>
+    <figure><canvas id="dw-c" class="imgc" width="192" height="192"></canvas><figcaption>Sub-bands (details amplified)</figcaption></figure>
+  </div>
+  <div id="dw-out"></div>
+  <p class="note">Layout: LL top-left, HL top-right (vertical edges), LH bottom-left (horizontal edges), HH bottom-right (diagonal detail). Textbooks differ in which of HL and LH they call "horizontal".</p>
+</section>
+
+<!-- ============ 9. JPEG ============ -->
+<section id="jpeg" class="card">
+  <h2>9. JPEG: the whole pipeline</h2>
+  <p><b>Baseline sequential JPEG:</b> input and output precision is 8 bits per sample; quantized DCT values are limited to 11 bits. Compression has three steps: DCT computation, quantization, and variable-length code assignment. Blocks are processed left to right, top to bottom.</p>
+
+  <h3>9.1 One 8×8 block, step by step</h3>
   <div class="ctrl">
     <label>Quality: <b id="jpeg-q-val">50</b></label>
     <input type="range" id="jpeg-q" min="5" max="100" value="50">
   </div>
-
   <div class="stepper-head">
-    <h3 id="jpeg-title"></h3>
+    <h4 id="jpeg-title"></h4>
     <div class="ctrl">
       <button id="jpeg-prev" class="ghost">◀ Back</button>
       <div id="jpeg-dots"></div>
@@ -141,6 +375,19 @@
     </div>
   </div>
   <div id="jpeg-body"></div>
+
+  <h3>9.2 Compress a whole image</h3>
+  <p>Every 8×8 block goes through level shift → DCT → quantization → dequantization → IDCT. Lower quality means larger Q-table steps, more zero coefficients, fewer bits, and visible <b>blocking</b> and <b>ringing</b> artifacts.</p>
+  <div class="img-ctrl" data-for="jpegimg"></div>
+  <div class="slider-grid one">
+    <label>Quality: <b id="ji-q-v"></b><input type="range" id="ji-q" min="1" max="100" step="1" value="20"></label>
+  </div>
+  <div class="imgrow">
+    <figure><canvas id="ji-orig" class="imgc" width="192" height="192"></canvas><figcaption>Original (grayscale)</figcaption></figure>
+    <figure><canvas id="ji-rec" class="imgc" width="192" height="192"></canvas><figcaption>Decoded</figcaption></figure>
+    <figure><canvas id="ji-err" class="imgc" width="192" height="192"></canvas><figcaption>Error × 4 (gray = 0)</figcaption></figure>
+  </div>
+  <div id="ji-out"></div>
 </section>
 
 <!-- =====================================================================
@@ -150,7 +397,7 @@
 
 <!-- ============ 7. PATTERNS ============ -->
 <section id="patterns" class="card">
-  <h2>7. Patterns and pattern classes</h2>
+  <h2>10. Patterns and pattern classes</h2>
   <p>In recognition, each segmented image region is treated as an <b>object</b>, and each object is described as a <b>pattern</b>. So object recognition becomes pattern recognition: assign every pattern to its class.</p>
 
   <h3>Bottom-up approach (image → description)</h3>
@@ -176,7 +423,7 @@
     <button class="tab" data-t="2">Trees</button>
   </div>
   <div class="tabpane" data-p="0">
-    <p><b>Pattern vector:</b> a list of numbers. Classic example: an iris flower described by <code>x = [petal length, petal width]</code>. Each flower becomes one point in a 2-D feature space, and the three varieties form three clusters: ω₁ = setosa, ω₂ = virginica, ω₃ = versicolor. You can play with this exact data set in Section 8.</p>
+    <p><b>Pattern vector:</b> a list of numbers. Classic example: an iris flower described by <code>x = [petal length, petal width]</code>. Each flower becomes one point in a 2-D feature space, and the three varieties form three clusters: ω₁ = setosa, ω₂ = virginica, ω₃ = versicolor. You can play with this exact data set in Section 11.</p>
     <p class="note">Best when the object can be summarised by measurements.</p>
   </div>
   <div class="tabpane" data-p="1" hidden>
@@ -220,12 +467,12 @@
 
 <!-- ============ 8. DECISION-THEORETIC ============ -->
 <section id="decision" class="card">
-  <h2>8. Decision-theoretic methods</h2>
+  <h2>11. Decision-theoretic methods</h2>
   <p>We want W <b>decision functions</b> d₁(x), …, d_W(x). An unknown pattern x belongs to class ω<sub>i</sub> if
   <code>dᵢ(x) &gt; dⱼ(x)</code> for every j ≠ i. In words: substitute x into every decision function, and the largest value wins.</p>
   <p>The <b>decision boundary</b> between classes i and j is where <code>dᵢⱼ(x) = dᵢ(x) − dⱼ(x) = 0</code>. Patterns of ω<sub>i</sub> give dᵢⱼ(x) &gt; 0 and patterns of ω<sub>j</sub> give dᵢⱼ(x) &lt; 0.</p>
 
-  <h3>8.1 Matching: minimum-distance classifier</h3>
+  <h3>11.1 Matching: minimum-distance classifier</h3>
   <p>Each class is represented by a <b>prototype</b> m<sub>j</sub> (the mean of its training patterns). The unknown is assigned to the nearest prototype using Euclidean distance <code>D = √Σ(xᵢ − yᵢ)²</code>.
   This is the same as using the decision function <code>dⱼ(x) = xᵀmⱼ − ½ mⱼᵀmⱼ</code> and taking the largest.</p>
   <p><b>Try it:</b> click or tap anywhere on the plot to place an unknown flower. The coloured background shows which class every point would be given; the borders between colours are the decision boundaries (perpendicular bisectors between prototypes).</p>
@@ -241,7 +488,7 @@
   <div id="md-out"></div>
   <p class="note"><b>Limitations of template matching:</b> the object must be well segmented, results are sensitive to lighting and background clutter, and performance drops sharply with occlusion, rotation and scale changes.</p>
 
-  <h3>8.2 Optimal statistical (Bayes) classifier</h3>
+  <h3>11.2 Optimal statistical (Bayes) classifier</h3>
   <p>Image data is uncertain (lighting, occlusion, viewpoint), so we use probabilities. Bayes' theorem gives the posterior probability
   <code>P(ωᵢ|x) = p(x|ωᵢ) P(ωᵢ) / p(x)</code>. Assign x to the class with the largest posterior. This gives the <b>minimum probability of error</b> on average.</p>
   <p>Since p(x) is the same for every class, the Bayes decision function is simply <code>dⱼ(x) = p(x|ωⱼ) P(ωⱼ)</code>. For 1-D Gaussian classes:
@@ -257,16 +504,16 @@
     <label>Test pattern x: <b id="by-x-v"></b><input type="range" id="by-x" min="0" max="10" step="0.1" value="4.8"></label>
   </div>
   <div id="by-out"></div>
-  <p><b>Application (from the slides):</b> classifying a multispectral aerial image into vegetation, water and bare soil. Each pixel is a pattern vector of its brightness in several spectral bands, and a Gaussian Bayes classifier labels every pixel.</p>
+  <p><b>Application:</b> classifying a multispectral aerial image into vegetation, water and bare soil. Each pixel is a pattern vector of its brightness in several spectral bands, and a Gaussian Bayes classifier labels every pixel.</p>
 </section>
 
 <!-- ============ 9. NEURAL NETWORKS ============ -->
 <section id="neural" class="card">
-  <h2>9. Neural networks</h2>
+  <h2>12. Neural networks</h2>
   <p>A neural network is made of <b>neurons</b> in layers: an input layer, one or more hidden layers, and an output layer. <b>Training (learning)</b> uses a training set to find the weights, which together form the decision function. Instead of hand-designing features, a deep network learns a hierarchical non-linear function f(I) that maps an image I to class probabilities. The final decision picks the class with the maximum posterior probability.</p>
   <p class="note">History: interest began in the 1940s. In the 1950s and 1960s Rosenblatt proposed the perceptron as a learning machine.</p>
 
-  <h3>9.1 Perceptron (Rosenblatt)</h3>
+  <h3>12.1 Perceptron (Rosenblatt)</h3>
   <p>One neuron: multiply each input by a weight, add them, and compare with a threshold T.
   <code>y = Σ xᵢwᵢ</code>, output = 1 if y &gt; T, else 0. Its decision boundary <code>w₁x₁ + w₂x₂ = T</code> is a straight line, so it can only separate <b>linearly separable</b> classes.</p>
   <p><b>Try it:</b> pick a problem, then press <b>Train</b>. The learning rule is <code>w ← w + η(t − o)x</code> and <code>T ← T − η(t − o)</code>, with η = 0.1. AND and OR converge. XOR never does.</p>
@@ -293,7 +540,7 @@
     </div>
   </div>
 
-  <h3>9.2 Activation functions</h3>
+  <h3>12.2 Activation functions</h3>
   <p>The activation function decides what a neuron outputs for its summed input z. Click each one.</p>
   <div class="tabs" id="af-tabs"></div>
   <div class="two-col">
@@ -301,20 +548,20 @@
     <div id="af-out"></div>
   </div>
 
-  <h3>9.3 Multilayer perceptron (MLP)</h3>
-  <p>An MLP (feedforward network) stacks layers of perceptrons. The hidden layers let it learn <b>non-linear</b> boundaries, so it can solve problems like XOR that a single perceptron cannot. The textbook example (Fig. 12.19) recognises four shapes using an input pattern vector, layer A with 48 neurons, layer B with 26 neurons, and an output layer Q with 4 neurons, one per shape.</p>
+  <h3>12.3 Multilayer perceptron (MLP)</h3>
+  <p>An MLP (feedforward network) stacks layers of perceptrons. The hidden layers let it learn <b>non-linear</b> boundaries, so it can solve problems like XOR that a single perceptron cannot. A classic example recognises four shapes using an input pattern vector, layer A with 48 neurons, layer B with 26 neurons, and an output layer Q with 4 neurons, one per shape.</p>
   <canvas id="mlp-canvas" width="560" height="230"></canvas>
   <p class="note">Every neuron connects to every neuron in the next layer. Training (back-propagation) adjusts the weights w<sub>ba</sub> and w<sub>qb</sub>.</p>
 
-  <h3>9.4 Convolutional neural network (CNN)</h3>
+  <h3>12.4 Convolutional neural network (CNN)</h3>
   <p>CNNs are neural networks designed for images. Typical flow: <b>convolution → ReLU → pooling → (repeat) → fully connected → class scores</b> (dog / cat / lion / bird).</p>
   <div class="grid3">
-    <div class="mini"><h3>Convolution layer</h3><p>Slides small filters (kernels) over the input. Each filter produces a feature map showing where its feature (edge, texture, …) appears. Does most of the computation.</p></div>
+    <div class="mini"><h3>Convolution layer</h3><p>Moves small filters (kernels) across the input. Each filter produces a feature map showing where its feature (edge, texture, …) appears. Does most of the computation.</p></div>
     <div class="mini"><h3>Pooling layer</h3><p>Max or average over small windows. Shrinks width and height, reduces computation, and helps control overfitting.</p></div>
     <div class="mini"><h3>Fully connected</h3><p>Flattens the final feature maps and maps them to class scores, usually with softmax at the end.</p></div>
   </div>
 
-  <h4>Convolution, step by step (the example from the slides)</h4>
+  <h4>Convolution, step by step</h4>
   <div class="ctrl">
     <label>Stride:
       <select id="cv-stride"><option value="1">1</option><option value="2">2</option></select>
@@ -325,10 +572,9 @@
   </div>
   <div class="pair" id="cv-mats"></div>
   <p class="bits" id="cv-calc"></p>
-  <p class="note">The first value, 16, matches the slide. The slide's later frames use a slightly different input matrix, so their 30 and 34 differ from the values computed here for this input.</p>
 
   <h4>Output size calculator</h4>
-  <p>Output size = <code>(N − F + 2P) / S + 1</code>, where N = input size, F = filter size, S = stride, P = padding. The slide question: 64×64 input, 4×4 filter, stride 2.</p>
+  <p>Output size = <code>(N − F + 2P) / S + 1</code>, where N = input size, F = filter size, S = stride, P = padding. Example: 64×64 input, 4×4 filter, stride 2.</p>
   <div class="slider-grid four">
     <label>N <input type="number" id="os-n" value="64" min="1"></label>
     <label>F <input type="number" id="os-f" value="4" min="1"></label>
@@ -348,7 +594,7 @@
 
 <!-- ============ 10. CASE STUDIES ============ -->
 <section id="cases" class="card">
-  <h2>10. Case studies: YOLO and Faster R-CNN</h2>
+  <h2>13. Case studies: YOLO and Faster R-CNN</h2>
 
   <h3>Case study 1: YOLO (You Only Look Once)</h3>
   <ul>
@@ -404,14 +650,14 @@
 
 <!-- ============ 11. STRUCTURAL ============ -->
 <section id="structural" class="card">
-  <h2>11. Structural methods</h2>
+  <h2>14. Structural methods</h2>
   <p>Structural methods use the <b>relationships inherent in a pattern's shape</b> rather than numbers alone. Three methods: syntactic recognition of strings, matching shape numbers, and string matching.</p>
 
-  <h3>11.1 Syntactic recognition of strings</h3>
+  <h3>14.1 Syntactic recognition of strings</h3>
   <p>Three ingredients: (1) a set of pattern <b>primitives</b>, (2) a <b>grammar</b> of rules for how they connect, and (3) a <b>recognizer (automaton)</b> built from that grammar.</p>
   <p>A string grammar is a 4-tuple <code>G = (N, Σ, P, S)</code>: N = non-terminals (variables), Σ = terminals (constants, the primitives), P = productions (rewriting rules), S = starting symbol.</p>
-  <p><b>Example (Fig. 12.26):</b> N = {S, A, B}, Σ = {a, b, c}, P = {S → aA, A → bA, A → bB, B → c}. The primitives are a (left end), b (a short straight segment) and c (right end) of an object's pruned skeleton. This grammar generates only strings of the form <code>abⁿc</code> (n ≥ 1).</p>
-  <p class="note">The slide shows "B → C" with a capital C. It should be a lower-case c, because c is a terminal; once it is applied no non-terminals remain and the derivation ends.</p>
+  <p><b>Example:</b> N = {S, A, B}, Σ = {a, b, c}, P = {S → aA, A → bA, A → bB, B → c}. The primitives are a (left end), b (a short straight segment) and c (right end) of an object's pruned skeleton. This grammar generates only strings of the form <code>abⁿc</code> (n ≥ 1).</p>
+  <p class="note">Note: the last production is B → c with a lower-case c, because c is a terminal. Once it is applied no non-terminals remain and the derivation ends.</p>
 
   <h4>Derive a skeleton yourself</h4>
   <div class="ctrl" id="gr-btns">
@@ -441,7 +687,7 @@
   <div id="gr-rec"></div>
   <p><b>Applications:</b> anything describable by well-defined rules, for example speech recognition (phoneme sequences as automaton states), chromosome and character shapes.</p>
 
-  <h3>11.2 Matching shape numbers</h3>
+  <h3>14.2 Matching shape numbers</h3>
   <p>Like the minimum-distance idea, but for region boundaries described by <b>shape numbers</b>.</p>
   <p><b>Freeman 4-direction chain code:</b> 0 = right, 1 = up, 2 = left, 3 = down.</p>
   <ol>
@@ -466,7 +712,7 @@
 
   <h4>Degree of similarity k and distance D</h4>
   <p>Two shapes a and b have <b>degree of similarity k</b> if their shape numbers agree for every order 4, 6, 8, …, k and differ for k + 2, k + 4, …. The <b>distance</b> is <code>D(a, b) = 1 / k</code>. It satisfies D ≥ 0, D = 0 only if a = b, and D(a, c) ≤ max[D(a, b), D(b, c)]. Higher k (lower D) means more similar.</p>
-  <p><b>Example (Fig. 12.24):</b> find the closest match to shape f among shapes a to e. Pick two shapes, or press the button.</p>
+  <p><b>Example:</b> find the closest match to shape f among shapes a to e. Pick two shapes, or press the button.</p>
   <div class="ctrl">
     <select id="sm-a"></select>
     <select id="sm-b"></select>
@@ -479,7 +725,7 @@
   </div>
   <p class="note">Reading the tree: at degree 4 and 6 all shapes look the same. At degree 8, shape a splits off (its k with every other shape is 6). Going down, d splits off at 8, and c and f stay together until degree 12, so f's best match is c.</p>
 
-  <h3>11.3 String matching</h3>
+  <h3>14.3 String matching</h3>
   <p>Code two region boundaries as strings a = a₁a₂…aₙ and b = b₁b₂…b<sub>m</sub>. Let α = number of positions where the symbols match. Then the number of mismatches is
   <code>β = max(|a|, |b|) − α</code>, and the similarity is <code>R = α / β</code>. If the strings are identical, β = 0 and R is infinite. Larger R means more similar.</p>
   <div class="slider-grid">
@@ -492,7 +738,7 @@
 
 <!-- ============ 12. MCQs ============ -->
 <section id="quiz" class="card">
-  <h2>12. Quick MCQs (self-check)</h2>
+  <h2>15. Quick MCQs (self-check)</h2>
   <div id="quiz-box"></div>
 </section>
 

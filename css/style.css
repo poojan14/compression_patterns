@@ -140,3 +140,44 @@ input[type=number],.txt,select{font:1rem ui-monospace,Menlo,Consolas,monospace;p
   .tbl th,.tbl td{padding:4px 5px}
   .card{padding:18px 14px}
 }
+
+/* ===== Part A upgrade ===== */
+.wide-in{width:100%;margin:6px 0}
+.imgrow{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0}
+.imgrow figure{margin:0;flex:1 1 180px;max-width:288px}
+.imgrow figcaption{font-size:.85rem;color:var(--muted);text-align:center}
+canvas.imgc{max-width:288px;image-rendering:pixelated;image-rendering:crisp-edges;margin:4px 0}
+canvas.small-c{max-width:160px;image-rendering:pixelated}
+#dct-basis{max-width:320px;cursor:pointer;image-rendering:pixelated}
+#qx-canvas{max-width:560px}
+.img-ctrl{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0;padding:8px 10px;background:#f4f6fb;border-radius:10px;font-size:.92rem}
+.img-ctrl .upload{display:inline-flex;align-items:center;gap:6px}
+.img-ctrl input[type=file]{font-size:.85rem;max-width:220px}
+
+ol.flow{padding-left:22px}
+ol.flow li{margin:6px 0}
+.tagx{display:inline-block;font-size:.75rem;border-radius:99px;padding:1px 8px;margin-left:4px;vertical-align:1px}
+.ok-t{background:#e9f8ef;color:var(--ok)}
+.bad-t{background:#fdeeee;color:var(--bad)}
+.warn-t{background:#fff4d6;color:#8a5a00}
+
+.bingrid{display:grid;grid-template-columns:repeat(40,14px);gap:1px;width:max-content;background:#d8deea;border:1px solid #d8deea;margin:8px 0;cursor:pointer}
+.bc{width:14px;height:14px;background:#fff}
+.bc.on{background:#14213d}
+pre.bits{white-space:pre;overflow-x:auto;font-size:.88rem}
+
+.htree{display:block;margin:6px 0;max-width:none}
+.htree .hedge{stroke:#9aa3b5;stroke-width:1.5}
+.htree .hbit{font:600 12px ui-monospace,monospace;fill:#e8590c;text-anchor:middle}
+.htree .hnode{fill:#eef2ff;stroke:#2456d6;stroke-width:1.5}
+.htree .hleaf{fill:#fff;stroke:#17874a;stroke-width:1.5}
+.htree .hfreq{font:600 12px system-ui;fill:#1e2430;text-anchor:middle}
+.htree .hsym{font:700 12px ui-monospace,monospace;fill:#17874a;text-anchor:middle}
+.htree .hcode{font:12px ui-monospace,monospace;fill:#2456d6;text-anchor:middle}
+.forest{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start}
+.forest .htree{border:1px dashed #d8deea;border-radius:8px}
+.dchunk{display:inline-block;text-align:center;border:1px solid var(--line);border-radius:6px;margin:2px;padding:2px 6px;background:#fff}
+.dchunk small{display:block;color:var(--ok);font-weight:700}
+.hlrow td{background:#fff4d6}
+.ctrl label{max-width:100%;min-width:0}
+select{max-width:100%}

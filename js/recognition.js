@@ -601,7 +601,7 @@ function initYOLO() {
       <p>Object centre (red dot) falls in grid cell <b>(row ${cj + 1}, column ${ci + 1})</b>, so that cell is responsible for this object.</p>
       <p>IoU = intersection / union = ${Math.round(R.inter)} / ${Math.round(R.uni)} = <b class="big">${v.toFixed(3)}</b><br>
       ${v >= 0.5 ? '<span class="ok">IoU ≥ 0.5: usually counted as a correct detection.</span>' : '<span class="bad">IoU &lt; 0.5: usually counted as a miss.</span>'}</p>
-      <p class="note">In the original YOLO, each cell predicts B = 2 boxes (x, y, w, h, confidence) plus C = 20 class probabilities, so the output tensor is S × S × (B·5 + C) = <b>${S} × ${S} × 30</b>${S === 7 ? ' (the 7×7×30 block in the slide diagram)' : ''}.</p>`;
+      <p class="note">In the original YOLO, each cell predicts B = 2 boxes (x, y, w, h, confidence) plus C = 20 class probabilities, so the output tensor is S × S × (B·5 + C) = <b>${S} × ${S} × 30</b>${S === 7 ? ' (the 7×7×30 output of the original network)' : ''}.</p>`;
   };
   bindRange('yo-s', null, draw);
   bindRange('yo-dx', v => v + ' px', draw);
@@ -773,7 +773,7 @@ function initShapeNumbers() {
   run();
 }
 
-/* ---------- 11.2 Similarity matrix / tree (Fig. 12.24) ---------- */
+/* ---------- 11.2 Similarity matrix / tree  ---------- */
 function initSimilarity() {
   const L = ['a', 'b', 'c', 'd', 'e', 'f'];
   const K = { ab: 6, ac: 6, ad: 6, ae: 6, af: 6, bc: 8, bd: 8, be: 10, bf: 8, cd: 8, ce: 8, cf: 12, de: 8, df: 8, ef: 8 };
