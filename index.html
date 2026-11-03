@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Compression Lab | DIP</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">DIP Interactive Lab</div>
+  <nav>
+    <span class="navgrp">Compression:</span>
+    <a href="#basics">Basics</a>
+    <a href="#lossy">Lossy vs Lossless</a>
+    <a href="#rle">RLE</a>
+    <a href="#huffman">Huffman</a>
+    <a href="#lzw">LZW</a>
+    <a href="#jpeg">JPEG</a>
+    <span class="navgrp">Ch 6 Recognition:</span>
+    <a href="#patterns">Patterns</a>
+    <a href="#decision">Decision-Theoretic</a>
+    <a href="#neural">Neural Nets &amp; CNN</a>
+    <a href="#cases">YOLO / Faster R-CNN</a>
+    <a href="#structural">Structural</a>
+    <a href="#quiz">MCQs</a>
+  </nav>
+</header>
+
+<main>
+
+<section class="hero">
+  <h1>Image Compression &amp; Object Recognition: Interactive Lab</h1>
+  <p>Learn each idea by playing with it. Everything runs in your browser. There is no server, no database, and no grading.</p>
+  <span class="tag">Digital Image Processing · B.Tech Semester 5</span>
+  <div class="hero-links">
+    <a class="pill" href="#basics">Part A · Image Compression</a>
+    <a class="pill" href="#patterns">Part B · Ch 6 Object Recognition &amp; Case Studies</a>
+  </div>
+</section>
+
+<div class="part" id="partA">Part A · Image Compression</div>
+
+<!-- ============ 1. BASICS ============ -->
+<section id="basics" class="card">
+  <h2>1. Why compress? The three redundancies</h2>
+  <p>A compression system has an <b>encoder</b> (turns the image into symbols) and a <b>decoder</b> (rebuilds the image from those symbols). The encoder removes three kinds of redundancy:</p>
+  <div class="grid3">
+    <div class="mini">
+      <h3>Coding redundancy</h3>
+      <p>Frequent gray levels get the same long code as rare ones. Fix: variable-length codes (Huffman, LZW).</p>
+    </div>
+    <div class="mini">
+      <h3>Interpixel redundancy</h3>
+      <p>Neighbouring pixels are almost the same. Fix: predict or transform (RLE, DCT, DWT).</p>
+    </div>
+    <div class="mini">
+      <h3>Psychovisual redundancy</h3>
+      <p>The eye ignores fine detail it cannot see. Fix: quantization, which throws that detail away.</p>
+    </div>
+  </div>
+
+  <h3>Block diagram</h3>
+  <div class="pipeline">
+    <div class="box">Mapper</div><span class="arrow">→</span>
+    <div class="box">Quantizer</div><span class="arrow">→</span>
+    <div class="box">Symbol coder</div>
+    <span class="channel">⇢ storage / transmission ⇢</span>
+    <div class="box">Symbol decoder</div><span class="arrow">→</span>
+    <div class="box">Inverse mapper</div>
+  </div>
+  <p class="note">The quantizer is the only irreversible block, which is why the decoder has no "inverse quantizer".</p>
+</section>
+
+<!-- ============ 2. LOSSY VS LOSSLESS ============ -->
+<section id="lossy" class="card">
+  <h2>2. Lossless vs lossy compression</h2>
+  <table class="tbl">
+    <tr><th></th><th>Lossless</th><th>Lossy</th></tr>
+    <tr><td><b>Reconstruction</b></td><td>Decoded output is bit-for-bit identical</td><td>Decoded output is an approximation</td></tr>
+    <tr><td><b>Typical ratio</b></td><td>About 2:1 to 3:1 for photos</td><td>10:1 to 100:1 or more</td></tr>
+    <tr><td><b>Techniques</b></td><td>RLE, Huffman, LZW, PNG filters</td><td>Quantization in JPEG, JPEG 2000 (with lossy settings)</td></tr>
+    <tr><td><b>Used for</b></td><td>Medical imaging, scanned documents, text, GIF/PNG graphics</td><td>Photos, web images, video streams</td></tr>
+  </table>
+
+  <h3>Try it: what quantization does</h3>
+  <p>Twelve pixel values are rounded to multiples of a step size. A step of 1 changes nothing. Larger steps discard more detail, which leaves fewer distinct values, and fewer distinct values are cheaper to code.</p>
+  <div class="ctrl">
+    <label>Step size: <b id="lossy-s-val">1</b></label>
+    <input type="range" id="lossy-s" min="1" max="40" value="1">
+  </div>
+  <div id="lossy-out" class="scroll"></div>
+</section>
+
+<!-- ============ 3. RLE ============ -->
+<section id="rle" class="card">
+  <h2>3. Run-Length Encoding (RLE), lossless</h2>
+  <p><b>Idea:</b> replace each run of identical symbols with a (count, symbol) pair. It works well when long runs exist, as in binary images, fax pages, and simple graphics.</p>
+  <p><b>Example:</b> <code>AAAABBBCCDAA</code> becomes <code>4A3B2C1D2A</code>.</p>
+  <textarea id="rle-input" spellcheck="false">WWWWWWWWWWWWBWWWWWWWWWWWWBBBWWWWWWWWWWWWWWWWWWWWWWWWBWWWWWWWWWWWWWW</textarea>
+  <div id="rle-out"></div>
+  <p class="note">Limitation: this demo writes counts as digits, so it assumes the input has no digits. Real codecs store counts as binary bytes.</p>
+  <p><b>Application:</b> fax machines (CCITT), BMP/PCX/TIFF packbits, scanline encoding in medical binary masks.</p>
+</section>
+
+<!-- ============ 4. HUFFMAN ============ -->
+<section id="huffman" class="card">
+  <h2>4. Huffman coding, lossless, variable-length</h2>
+  <p><b>Idea:</b> count how often each symbol appears. Repeatedly merge the two least frequent items into a tree. Left edges are 0 and right edges are 1. Frequent symbols end up near the root and get short codes.</p>
+  <p><b>Key property:</b> the codes are <i>prefix-free</i>. No code is the start of another code, so the bit stream decodes without separators.</p>
+  <textarea id="huf-input" spellcheck="false">ABRACADABRA ALAKAZAM</textarea>
+  <div id="huf-out"></div>
+  <p><b>Application:</b> the entropy-coding stage of JPEG, MP3, DEFLATE (ZIP, PNG, gzip).</p>
+</section>
+
+<!-- ============ 5. LZW ============ -->
+<section id="lzw" class="card">
+  <h2>5. Lempel-Ziv-Welch (LZW), lossless, dictionary-based</h2>
+  <p><b>Idea:</b> the encoder and decoder build the same dictionary as they go. The encoder keeps extending a buffer <code>w</code> while <code>w+c</code> is already in the dictionary. When it is not, it outputs the code for <code>w</code> and adds <code>w+c</code> as a new entry. No dictionary is transmitted.</p>
+  <p><b>Application:</b> GIF, TIFF, and early PDF/PostScript.</p>
+  <textarea id="lzw-input" spellcheck="false">TOBEORNOTTOBEORTOBEORNOT</textarea>
+  <div id="lzw-out"></div>
+</section>
+
+<!-- ============ 6. JPEG ============ -->
+<section id="jpeg" class="card">
+  <h2>6. JPEG: the whole pipeline, step by step</h2>
+  <p>JPEG is lossy. It combines RLE-style zero coding, Huffman entropy coding, and a DCT transform. Use the buttons to walk through one 8×8 block. Move the quality slider to see how quantization changes everything.</p>
+
+  <div class="ctrl">
+    <label>Quality: <b id="jpeg-q-val">50</b></label>
+    <input type="range" id="jpeg-q" min="5" max="100" value="50">
+  </div>
+
+  <div class="stepper-head">
+    <h3 id="jpeg-title"></h3>
+    <div class="ctrl">
+      <button id="jpeg-prev" class="ghost">◀ Back</button>
+      <div id="jpeg-dots"></div>
+      <button id="jpeg-next">Next ▶</button>
+    </div>
+  </div>
+  <div id="jpeg-body"></div>
+</section>
+
+<!-- =====================================================================
+     PART B · CHAPTER 6: OBJECT RECOGNITION & CASE STUDIES
+     ===================================================================== -->
+<div class="part" id="partB">Part B · Chapter 6: Object Recognition &amp; Case Studies</div>
+
+<!-- ============ 7. PATTERNS ============ -->
+<section id="patterns" class="card">
+  <h2>7. Patterns and pattern classes</h2>
+  <p>In recognition, each segmented image region is treated as an <b>object</b>, and each object is described as a <b>pattern</b>. So object recognition becomes pattern recognition: assign every pattern to its class.</p>
+
+  <h3>Bottom-up approach (image → description)</h3>
+  <div class="pipeline">
+    <div class="box">Image</div><span class="arrow">→</span>
+    <div class="box">Region / edge feature extraction</div><span class="arrow">→</span>
+    <div class="box">Symbolic representation</div><span class="arrow">→</span>
+    <div class="box">Scene models</div><span class="arrow">→</span>
+    <div class="box">Semantic interpretation</div><span class="arrow">→</span>
+    <div class="box">Description</div>
+  </div>
+
+  <div class="grid3">
+    <div class="mini"><h3>Descriptor / feature</h3><p>A measurable property of an object, such as length, width, area, or brightness. Good descriptors separate different classes clearly, whatever the object's position.</p></div>
+    <div class="mini"><h3>Pattern</h3><p>An arrangement of descriptors that describes one object, for example <code>x = [x₁, x₂, …, xₙ]ᵀ</code>.</p></div>
+    <div class="mini"><h3>Pattern class ω</h3><p>A family of patterns that share common properties. With W classes we write ω₁, ω₂, …, ω_W.</p></div>
+  </div>
+
+  <h3>Three ways to arrange a pattern</h3>
+  <div class="tabs" id="pat-tabs">
+    <button class="tab on" data-t="0">Vectors</button>
+    <button class="tab" data-t="1">Strings</button>
+    <button class="tab" data-t="2">Trees</button>
+  </div>
+  <div class="tabpane" data-p="0">
+    <p><b>Pattern vector:</b> a list of numbers. Classic example: an iris flower described by <code>x = [petal length, petal width]</code>. Each flower becomes one point in a 2-D feature space, and the three varieties form three clusters: ω₁ = setosa, ω₂ = virginica, ω₃ = versicolor. You can play with this exact data set in Section 8.</p>
+    <p class="note">Best when the object can be summarised by measurements.</p>
+  </div>
+  <div class="tabpane" data-p="1" hidden>
+    <p><b>String:</b> a sequence of primitive symbols. A staircase boundary built from two primitives, <code>a</code> = step right and <code>b</code> = step down, is described by the string <code>…ababab…</code>.</p>
+    <canvas id="pat-stair" width="520" height="150"></canvas>
+    <p class="note">Best for structures with simple connectivity, usually boundary shapes.</p>
+  </div>
+  <div class="tabpane" data-p="2" hidden>
+    <p><b>Tree:</b> a hierarchy that describes how a scene is composed. Example: a satellite image of a city.</p>
+    <ul class="tree">
+      <li><b>Image $</b>
+        <ul>
+          <li>Downtown
+            <ul>
+              <li>Buildings: high density, large structures</li>
+              <li>Highways: multiple, numerous intersections, loops</li>
+            </ul>
+          </li>
+          <li>Residential
+            <ul>
+              <li>Housing: low density, small structures, wooded areas</li>
+              <li>Shopping malls</li>
+              <li>Highways: single, few intersections</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <p class="note">The root is the whole image. Each level splits regions further, until the image resolution cannot separate them any more.</p>
+  </div>
+
+  <h3>Two families of recognition methods</h3>
+  <table class="tbl">
+    <tr><th></th><th>Decision-theoretic</th><th>Structural</th></tr>
+    <tr><td><b>Descriptors</b></td><td>Quantitative (length, area, texture values)</td><td>Qualitative / relational (how primitives connect)</td></tr>
+    <tr><td><b>Pattern form</b></td><td>Vectors</td><td>Strings and trees</td></tr>
+    <tr><td><b>Methods</b></td><td>Matching (minimum distance), optimal statistical (Bayes) classifier, neural networks</td><td>Syntactic recognition of strings, matching shape numbers, string matching</td></tr>
+    <tr><td><b>Example</b></td><td>Classify iris flowers by petal size</td><td>Fingerprints: the arrangement of ridge features (minutiae)</td></tr>
+  </table>
+</section>
+
+<!-- ============ 8. DECISION-THEORETIC ============ -->
+<section id="decision" class="card">
+  <h2>8. Decision-theoretic methods</h2>
+  <p>We want W <b>decision functions</b> d₁(x), …, d_W(x). An unknown pattern x belongs to class ω<sub>i</sub> if
+  <code>dᵢ(x) &gt; dⱼ(x)</code> for every j ≠ i. In words: substitute x into every decision function, and the largest value wins.</p>
+  <p>The <b>decision boundary</b> between classes i and j is where <code>dᵢⱼ(x) = dᵢ(x) − dⱼ(x) = 0</code>. Patterns of ω<sub>i</sub> give dᵢⱼ(x) &gt; 0 and patterns of ω<sub>j</sub> give dᵢⱼ(x) &lt; 0.</p>
+
+  <h3>8.1 Matching: minimum-distance classifier</h3>
+  <p>Each class is represented by a <b>prototype</b> m<sub>j</sub> (the mean of its training patterns). The unknown is assigned to the nearest prototype using Euclidean distance <code>D = √Σ(xᵢ − yᵢ)²</code>.
+  This is the same as using the decision function <code>dⱼ(x) = xᵀmⱼ − ½ mⱼᵀmⱼ</code> and taking the largest.</p>
+  <p><b>Try it:</b> click or tap anywhere on the plot to place an unknown flower. The coloured background shows which class every point would be given; the borders between colours are the decision boundaries (perpendicular bisectors between prototypes).</p>
+  <canvas id="md-canvas" width="560" height="340"></canvas>
+  <div class="legend" id="md-legend"></div>
+  <div class="ctrl">
+    <label><input type="checkbox" id="md-regions" checked> Show decision regions</label>
+  </div>
+  <div class="slider-grid">
+    <label>Petal length x₁: <b id="md-x1-v"></b><input type="range" id="md-x1" min="0.2" max="7.4" step="0.05" value="4.8"></label>
+    <label>Petal width x₂: <b id="md-x2-v"></b><input type="range" id="md-x2" min="0.05" max="2.75" step="0.05" value="1.6"></label>
+  </div>
+  <div id="md-out"></div>
+  <p class="note"><b>Limitations of template matching:</b> the object must be well segmented, results are sensitive to lighting and background clutter, and performance drops sharply with occlusion, rotation and scale changes.</p>
+
+  <h3>8.2 Optimal statistical (Bayes) classifier</h3>
+  <p>Image data is uncertain (lighting, occlusion, viewpoint), so we use probabilities. Bayes' theorem gives the posterior probability
+  <code>P(ωᵢ|x) = p(x|ωᵢ) P(ωᵢ) / p(x)</code>. Assign x to the class with the largest posterior. This gives the <b>minimum probability of error</b> on average.</p>
+  <p>Since p(x) is the same for every class, the Bayes decision function is simply <code>dⱼ(x) = p(x|ωⱼ) P(ωⱼ)</code>. For 1-D Gaussian classes:
+  <code>dⱼ(x) = (1 / √(2π) σⱼ) · e<sup>−(x − mⱼ)² / 2σⱼ²</sup> · P(ωⱼ)</code>.</p>
+  <p><b>Try it:</b> move the sliders. Watch the boundary (where the two curves cross) shift when you change a prior or a spread.</p>
+  <canvas id="by-canvas" width="560" height="260"></canvas>
+  <div class="slider-grid">
+    <label>Mean m₁: <b id="by-m1-v"></b><input type="range" id="by-m1" min="0" max="10" step="0.1" value="3.5"></label>
+    <label>Spread σ₁: <b id="by-s1-v"></b><input type="range" id="by-s1" min="0.3" max="3" step="0.1" value="1"></label>
+    <label>Mean m₂: <b id="by-m2-v"></b><input type="range" id="by-m2" min="0" max="10" step="0.1" value="6.5"></label>
+    <label>Spread σ₂: <b id="by-s2-v"></b><input type="range" id="by-s2" min="0.3" max="3" step="0.1" value="1"></label>
+    <label>Prior P(ω₁): <b id="by-p1-v"></b><input type="range" id="by-p1" min="0.05" max="0.95" step="0.05" value="0.5"></label>
+    <label>Test pattern x: <b id="by-x-v"></b><input type="range" id="by-x" min="0" max="10" step="0.1" value="4.8"></label>
+  </div>
+  <div id="by-out"></div>
+  <p><b>Application (from the slides):</b> classifying a multispectral aerial image into vegetation, water and bare soil. Each pixel is a pattern vector of its brightness in several spectral bands, and a Gaussian Bayes classifier labels every pixel.</p>
+</section>
+
+<!-- ============ 9. NEURAL NETWORKS ============ -->
+<section id="neural" class="card">
+  <h2>9. Neural networks</h2>
+  <p>A neural network is made of <b>neurons</b> in layers: an input layer, one or more hidden layers, and an output layer. <b>Training (learning)</b> uses a training set to find the weights, which together form the decision function. Instead of hand-designing features, a deep network learns a hierarchical non-linear function f(I) that maps an image I to class probabilities. The final decision picks the class with the maximum posterior probability.</p>
+  <p class="note">History: interest began in the 1940s. In the 1950s and 1960s Rosenblatt proposed the perceptron as a learning machine.</p>
+
+  <h3>9.1 Perceptron (Rosenblatt)</h3>
+  <p>One neuron: multiply each input by a weight, add them, and compare with a threshold T.
+  <code>y = Σ xᵢwᵢ</code>, output = 1 if y &gt; T, else 0. Its decision boundary <code>w₁x₁ + w₂x₂ = T</code> is a straight line, so it can only separate <b>linearly separable</b> classes.</p>
+  <p><b>Try it:</b> pick a problem, then press <b>Train</b>. The learning rule is <code>w ← w + η(t − o)x</code> and <code>T ← T − η(t − o)</code>, with η = 0.1. AND and OR converge. XOR never does.</p>
+  <div class="tabs" id="pc-sets">
+    <button class="tab on" data-s="AND">AND</button>
+    <button class="tab" data-s="OR">OR</button>
+    <button class="tab" data-s="XOR">XOR</button>
+  </div>
+  <div class="two-col">
+    <div><canvas id="pc-canvas" width="320" height="320"></canvas>
+      <p class="note">● target 1 · ○ target 0 · red ring = currently wrong · blue area = output 1</p></div>
+    <div>
+      <div class="slider-grid one">
+        <label>w₁: <b id="pc-w1-v"></b><input type="range" id="pc-w1" min="-3" max="3" step="0.1" value="0"></label>
+        <label>w₂: <b id="pc-w2-v"></b><input type="range" id="pc-w2" min="-3" max="3" step="0.1" value="0"></label>
+        <label>Threshold T: <b id="pc-T-v"></b><input type="range" id="pc-T" min="-3" max="3" step="0.1" value="0"></label>
+      </div>
+      <div class="ctrl">
+        <button id="pc-epoch">Train 1 epoch</button>
+        <button id="pc-train">Train until done</button>
+        <button id="pc-reset" class="ghost">Reset</button>
+      </div>
+      <div id="pc-out"></div>
+    </div>
+  </div>
+
+  <h3>9.2 Activation functions</h3>
+  <p>The activation function decides what a neuron outputs for its summed input z. Click each one.</p>
+  <div class="tabs" id="af-tabs"></div>
+  <div class="two-col">
+    <canvas id="af-canvas" width="420" height="260"></canvas>
+    <div id="af-out"></div>
+  </div>
+
+  <h3>9.3 Multilayer perceptron (MLP)</h3>
+  <p>An MLP (feedforward network) stacks layers of perceptrons. The hidden layers let it learn <b>non-linear</b> boundaries, so it can solve problems like XOR that a single perceptron cannot. The textbook example (Fig. 12.19) recognises four shapes using an input pattern vector, layer A with 48 neurons, layer B with 26 neurons, and an output layer Q with 4 neurons, one per shape.</p>
+  <canvas id="mlp-canvas" width="560" height="230"></canvas>
+  <p class="note">Every neuron connects to every neuron in the next layer. Training (back-propagation) adjusts the weights w<sub>ba</sub> and w<sub>qb</sub>.</p>
+
+  <h3>9.4 Convolutional neural network (CNN)</h3>
+  <p>CNNs are neural networks designed for images. Typical flow: <b>convolution → ReLU → pooling → (repeat) → fully connected → class scores</b> (dog / cat / lion / bird).</p>
+  <div class="grid3">
+    <div class="mini"><h3>Convolution layer</h3><p>Slides small filters (kernels) over the input. Each filter produces a feature map showing where its feature (edge, texture, …) appears. Does most of the computation.</p></div>
+    <div class="mini"><h3>Pooling layer</h3><p>Max or average over small windows. Shrinks width and height, reduces computation, and helps control overfitting.</p></div>
+    <div class="mini"><h3>Fully connected</h3><p>Flattens the final feature maps and maps them to class scores, usually with softmax at the end.</p></div>
+  </div>
+
+  <h4>Convolution, step by step (the example from the slides)</h4>
+  <div class="ctrl">
+    <label>Stride:
+      <select id="cv-stride"><option value="1">1</option><option value="2">2</option></select>
+    </label>
+    <button id="cv-prev" class="ghost">◀ Back</button>
+    <button id="cv-next">Next ▶</button>
+    <button id="cv-all" class="ghost">Fill all</button>
+  </div>
+  <div class="pair" id="cv-mats"></div>
+  <p class="bits" id="cv-calc"></p>
+  <p class="note">The first value, 16, matches the slide. The slide's later frames use a slightly different input matrix, so their 30 and 34 differ from the values computed here for this input.</p>
+
+  <h4>Output size calculator</h4>
+  <p>Output size = <code>(N − F + 2P) / S + 1</code>, where N = input size, F = filter size, S = stride, P = padding. The slide question: 64×64 input, 4×4 filter, stride 2.</p>
+  <div class="slider-grid four">
+    <label>N <input type="number" id="os-n" value="64" min="1"></label>
+    <label>F <input type="number" id="os-f" value="4" min="1"></label>
+    <label>Stride S <input type="number" id="os-s" value="2" min="1"></label>
+    <label>Padding P <input type="number" id="os-p" value="0" min="0"></label>
+  </div>
+  <p id="os-out" class="big"></p>
+
+  <h4>Pooling</h4>
+  <div class="tabs" id="pl-tabs">
+    <button class="tab on" data-m="max">Max pooling</button>
+    <button class="tab" data-m="avg">Average pooling</button>
+  </div>
+  <div class="pair" id="pl-mats"></div>
+  <p class="note">A 2×2 window with stride 2 halves the width and height. Same-coloured cells go into the same output value.</p>
+</section>
+
+<!-- ============ 10. CASE STUDIES ============ -->
+<section id="cases" class="card">
+  <h2>10. Case studies: YOLO and Faster R-CNN</h2>
+
+  <h3>Case study 1: YOLO (You Only Look Once)</h3>
+  <ul>
+    <li>A <b>single CNN</b> looks at the whole image once and predicts all bounding boxes and class probabilities at the same time (one-shot detection).</li>
+    <li>The image is divided into an <b>S × S grid</b>. The cell that contains an object's centre is responsible for detecting it.</li>
+    <li>Each box has a <b>confidence score</b> defined by the <b>IoU</b> (Intersection over Union) between the predicted box and the ground truth.</li>
+    <li>Because it sees the whole image during training and testing, it learns context about classes and where they appear.</li>
+    <li>Speed: the base model runs at <b>45 frames/s</b> and Fast YOLO at <b>155 frames/s</b>, so it suits real-time use.</li>
+    <li>Weakness: lower accuracy on <b>small objects</b> and objects that appear in <b>groups</b>.</li>
+  </ul>
+  <p><b>Try it:</b> change the grid size and move the predicted box. The yellow cell is responsible for the object, and IoU updates live.</p>
+  <div class="two-col">
+    <canvas id="yo-canvas" width="420" height="420"></canvas>
+    <div>
+      <div class="slider-grid one">
+        <label>Grid size S: <b id="yo-s-v"></b><input type="range" id="yo-s" min="3" max="9" step="1" value="7"></label>
+        <label>Predicted box shift x: <b id="yo-dx-v"></b><input type="range" id="yo-dx" min="-120" max="120" step="2" value="24"></label>
+        <label>Predicted box shift y: <b id="yo-dy-v"></b><input type="range" id="yo-dy" min="-120" max="120" step="2" value="-16"></label>
+        <label>Predicted box scale: <b id="yo-sc-v"></b><input type="range" id="yo-sc" min="0.4" max="1.6" step="0.05" value="1.1"></label>
+      </div>
+      <div id="yo-out"></div>
+    </div>
+  </div>
+
+  <h3>Case study 2: Faster R-CNN</h3>
+  <p>A two-stage detector. A <b>Region Proposal Network (RPN)</b> inside the network suggests where objects might be, then a second stage classifies each proposal. Click each stage.</p>
+  <div class="pipeline" id="fr-stages"></div>
+  <div id="fr-desc" class="why"></div>
+
+  <h4>RoI pooling: any proposal size → one fixed size</h4>
+  <p>Proposals have different sizes, but the classifier needs a fixed-size input. RoI pooling divides each proposal into a fixed grid (here 2×2) and takes the max in each part.</p>
+  <div class="ctrl">
+    <label>Proposal size on the feature map:
+      <select id="roi-size">
+        <option value="4x4">4 × 4</option>
+        <option value="4x6" selected>4 × 6</option>
+        <option value="6x8">6 × 8</option>
+      </select>
+    </label>
+  </div>
+  <div class="pair" id="roi-mats"></div>
+
+  <h4>YOLO vs Faster R-CNN</h4>
+  <table class="tbl">
+    <tr><th></th><th>YOLO</th><th>Faster R-CNN</th></tr>
+    <tr><td><b>Type</b></td><td>One-stage (single pass)</td><td>Two-stage (propose, then classify)</td></tr>
+    <tr><td><b>How regions are found</b></td><td>Fixed S×S grid; each cell predicts boxes</td><td>RPN predicts proposals at every sliding-window position</td></tr>
+    <tr><td><b>Speed</b></td><td>Very fast (45 to 155 fps)</td><td>Slower</td></tr>
+    <tr><td><b>Accuracy</b></td><td>Weaker on small or grouped objects</td><td>Generally higher, better for small objects</td></tr>
+    <tr><td><b>Typical use</b></td><td>Real-time video, robotics, traffic cameras</td><td>Accuracy-critical work: medical, satellite and aerial imagery</td></tr>
+  </table>
+</section>
+
+<!-- ============ 11. STRUCTURAL ============ -->
+<section id="structural" class="card">
+  <h2>11. Structural methods</h2>
+  <p>Structural methods use the <b>relationships inherent in a pattern's shape</b> rather than numbers alone. Three methods: syntactic recognition of strings, matching shape numbers, and string matching.</p>
+
+  <h3>11.1 Syntactic recognition of strings</h3>
+  <p>Three ingredients: (1) a set of pattern <b>primitives</b>, (2) a <b>grammar</b> of rules for how they connect, and (3) a <b>recognizer (automaton)</b> built from that grammar.</p>
+  <p>A string grammar is a 4-tuple <code>G = (N, Σ, P, S)</code>: N = non-terminals (variables), Σ = terminals (constants, the primitives), P = productions (rewriting rules), S = starting symbol.</p>
+  <p><b>Example (Fig. 12.26):</b> N = {S, A, B}, Σ = {a, b, c}, P = {S → aA, A → bA, A → bB, B → c}. The primitives are a (left end), b (a short straight segment) and c (right end) of an object's pruned skeleton. This grammar generates only strings of the form <code>abⁿc</code> (n ≥ 1).</p>
+  <p class="note">The slide shows "B → C" with a capital C. It should be a lower-case c, because c is a terminal; once it is applied no non-terminals remain and the derivation ends.</p>
+
+  <h4>Derive a skeleton yourself</h4>
+  <div class="ctrl" id="gr-btns">
+    <button data-r="0">S → aA</button>
+    <button data-r="1">A → bA</button>
+    <button data-r="2">A → bB</button>
+    <button data-r="3">B → c</button>
+    <button id="gr-reset" class="ghost">Reset</button>
+  </div>
+  <p class="bits" id="gr-deriv"></p>
+  <canvas id="gr-canvas" width="560" height="150"></canvas>
+  <p id="gr-msg"></p>
+
+  <h4>Use of semantics</h4>
+  <p>Syntax (the productions) fixes the <b>structure</b>. Semantics, stored in a knowledge base, check the <b>correctness</b>: lengths, directions, and how many times a rule may be used.</p>
+  <table class="tbl">
+    <tr><th>Production</th><th>Semantic information</th></tr>
+    <tr><td>S → aA</td><td>Connect to a only at the dot. Direction θ of a = perpendicular bisector of the line joining the two undotted ends. Each line segment is 3 cm.</td></tr>
+    <tr><td>A → bA</td><td>Connect to b only at its dots, no multiple connections. Direction of b = direction of a. Length of b = 0.25 cm. <b>May be applied at most 10 times.</b></td></tr>
+    <tr><td>A → bB</td><td>Directions of a and b must be the same. Connections are simple and made only at the dots.</td></tr>
+    <tr><td>B → c</td><td>Directions of c and a must be the same. Connections are simple and made only at the dots.</td></tr>
+  </table>
+
+  <h4>The recognizer (finite automaton)</h4>
+  <p>Type any string. The automaton q0 —a→ q1 —b→ q2 (b loops on q2) —c→ q<sub>F</sub> accepts exactly the strings of L(G). The semantic check then limits the number of b's.</p>
+  <input type="text" id="gr-str" class="txt" value="abbbc" spellcheck="false">
+  <div id="gr-rec"></div>
+  <p><b>Applications:</b> anything describable by well-defined rules, for example speech recognition (phoneme sequences as automaton states), chromosome and character shapes.</p>
+
+  <h3>11.2 Matching shape numbers</h3>
+  <p>Like the minimum-distance idea, but for region boundaries described by <b>shape numbers</b>.</p>
+  <p><b>Freeman 4-direction chain code:</b> 0 = right, 1 = up, 2 = left, 3 = down.</p>
+  <ol>
+    <li>Write the chain code of the boundary.</li>
+    <li><b>First difference:</b> for each element, (current − previous) mod 4. The first element is compared with the last (the boundary is closed). Example: 2 − 3 = −1, and −1 mod 4 = 3.</li>
+    <li><b>Shape number:</b> rotate the difference cyclically until it forms the smallest number.</li>
+    <li><b>Order n</b> = number of digits in the shape number.</li>
+  </ol>
+  <p class="note">The difference makes the code independent of rotation, and choosing the smallest rotation makes it independent of the starting point.</p>
+  <div class="ctrl">
+    <input type="text" id="sn-chain" class="txt" value="003221" spellcheck="false">
+    <span>Presets:</span>
+    <button class="ghost sn-pre" data-c="0321">Order 4 square</button>
+    <button class="ghost sn-pre" data-c="003221">Order 6 rectangle</button>
+    <button class="ghost sn-pre" data-c="00332211">Order 8 square</button>
+    <button class="ghost sn-pre" data-c="00032221">Order 8 rectangle</button>
+  </div>
+  <div class="two-col">
+    <canvas id="sn-canvas" width="320" height="240"></canvas>
+    <div id="sn-out"></div>
+  </div>
+
+  <h4>Degree of similarity k and distance D</h4>
+  <p>Two shapes a and b have <b>degree of similarity k</b> if their shape numbers agree for every order 4, 6, 8, …, k and differ for k + 2, k + 4, …. The <b>distance</b> is <code>D(a, b) = 1 / k</code>. It satisfies D ≥ 0, D = 0 only if a = b, and D(a, c) ≤ max[D(a, b), D(b, c)]. Higher k (lower D) means more similar.</p>
+  <p><b>Example (Fig. 12.24):</b> find the closest match to shape f among shapes a to e. Pick two shapes, or press the button.</p>
+  <div class="ctrl">
+    <select id="sm-a"></select>
+    <select id="sm-b"></select>
+    <button id="sm-best">Find best match for f</button>
+  </div>
+  <p id="sm-out" class="big"></p>
+  <div class="two-col">
+    <div><h5>Similarity matrix (k)</h5><div id="sm-matrix" class="scroll"></div></div>
+    <div><h5>Similarity tree</h5><div id="sm-tree" class="scroll"></div></div>
+  </div>
+  <p class="note">Reading the tree: at degree 4 and 6 all shapes look the same. At degree 8, shape a splits off (its k with every other shape is 6). Going down, d splits off at 8, and c and f stay together until degree 12, so f's best match is c.</p>
+
+  <h3>11.3 String matching</h3>
+  <p>Code two region boundaries as strings a = a₁a₂…aₙ and b = b₁b₂…b<sub>m</sub>. Let α = number of positions where the symbols match. Then the number of mismatches is
+  <code>β = max(|a|, |b|) − α</code>, and the similarity is <code>R = α / β</code>. If the strings are identical, β = 0 and R is infinite. Larger R means more similar.</p>
+  <div class="slider-grid">
+    <label>String a <input type="text" id="st-a" class="txt" value="00332211" spellcheck="false"></label>
+    <label>String b <input type="text" id="st-b" class="txt" value="03322110" spellcheck="false"></label>
+  </div>
+  <div class="ctrl"><label><input type="checkbox" id="st-cyc"> Try every cyclic shift of b (removes the effect of the starting point)</label></div>
+  <div id="st-out"></div>
+</section>
+
+<!-- ============ 12. MCQs ============ -->
+<section id="quiz" class="card">
+  <h2>12. Quick MCQs (self-check)</h2>
+  <p class="note">No score is kept. Your choices are saved only in this browser (localStorage), so they remain when you come back.</p>
+  <div id="quiz-box"></div>
+</section>
+
+<footer class="note">
+  Reference: Gonzalez &amp; Woods, <i>Digital Image Processing</i>, chapters on Image Compression and Object Recognition (Ch. 12, course Ch. 6).
+</footer>
+
+</main>
+
+<script src="js/algorithms.js"></script>
+<script src="js/app.js"></script>
+<script src="js/recognition.js"></script>
+</body>
+</html>
